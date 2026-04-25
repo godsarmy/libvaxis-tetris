@@ -150,6 +150,26 @@ pub fn build(b: *std.Build) void {
 
     const run_game_rules_tests = b.addRunArtifact(game_rules_tests);
 
+    const game_state_tests = b.addTest(.{
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/game/state_test.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+
+    const run_game_state_tests = b.addRunArtifact(game_state_tests);
+
+    const game_rules_edge_tests = b.addTest(.{
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("src/game/rules_edge_test.zig"),
+            .target = target,
+            .optimize = optimize,
+        }),
+    });
+
+    const run_game_rules_edge_tests = b.addRunArtifact(game_rules_edge_tests);
+
     // A top level step for running all tests. dependOn can be called multiple
     // times and since these run steps do not depend on one another, this will
     // make them run in parallel.
@@ -157,6 +177,8 @@ pub fn build(b: *std.Build) void {
     test_step.dependOn(&run_mod_tests.step);
     test_step.dependOn(&run_exe_tests.step);
     test_step.dependOn(&run_game_rules_tests.step);
+    test_step.dependOn(&run_game_state_tests.step);
+    test_step.dependOn(&run_game_rules_edge_tests.step);
 
     // Just like flags, top level steps are also listed in the `--help` menu.
     //

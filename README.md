@@ -28,7 +28,6 @@ zig build run
 
 ```bash
 zig build test
-zig test src/game/rules_test.zig
 ```
 
 ## Format
