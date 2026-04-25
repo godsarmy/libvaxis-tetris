@@ -148,8 +148,8 @@ Use this as a live checklist. Mark items as you complete them.
 - [!] Resize terminal during play and verify behavior (blocked in this environment: `/dev/tty` unavailable)
 
 ### 5.2 Cleanup
-- [ ] Split code into modules (`game`, `ui`, `app`)
-- [ ] Add comments for non-obvious rules
+- [x] Split code into modules (`game`, `ui`, `app`)
+- [x] Add comments for non-obvious rules
 - [x] Remove dead code and debug prints
 
 ### 5.3 Documentation
@@ -177,4 +177,4 @@ Use this as a live checklist. Mark items as you complete them.
 ## Progress snapshot
 - Overall status: [~] In progress
 - Current phase: `5`
-- Next actionable item: `5.2 Cleanup`
+- Next actionable item: `Manual play test (real TTY) and resize validation`
