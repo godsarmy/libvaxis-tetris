@@ -8,16 +8,6 @@ Guidance for coding agents working in this repository.
 - UI library: [`libvaxis`](https://github.com/rockorager/libvaxis)
 - App type: terminal Tetris
 
-## Repository layout
-
-- `src/main.zig` — thin entrypoint
-- `src/app.zig` — runtime loop, input handling, state transitions, timing
-- `src/ui.zig` — rendering helpers and rich text segments
-- `src/game/types.zig` — core game types
-- `src/game/state.zig` — mutable game state model
-- `src/game/rules.zig` — pure game rules
-- `src/game/rules_test.zig` — rules tests
-
 ## Local commands
 
 - Format: `zig fmt build.zig src/*.zig src/game/*.zig`
