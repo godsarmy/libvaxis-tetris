@@ -16,6 +16,7 @@ const hard_drop_score_per_row: u32 = 2;
 // gravity interval so the app can react promptly to input/focus changes and
 // lock-delay deadlines without stalling redraws between long gravity steps.
 const tick_poll_ms: u32 = 50;
+const line_clear_flash_ms: u32 = 160;
 
 // When the active piece first touches the stack/floor we start this timer,
 // then lock only if it is still grounded at expiry. This preserves expected
@@ -27,6 +28,7 @@ pub const Model = struct {
     game: game_state.GameState = game_state.GameState.init(),
     lock_deadline: std.Io.Timestamp = .{ .nanoseconds = 0 },
     next_gravity_deadline: std.Io.Timestamp = .{ .nanoseconds = 0 },
+    line_clear_flash_deadline: std.Io.Timestamp = .{ .nanoseconds = 0 },
 
     pub fn widget(self: *Model) vxfw.Widget {
         return .{
@@ -39,6 +41,7 @@ pub const Model = struct {
     fn startNewGame(self: *Model, io: std.Io) void {
         self.game = game_state.GameState.init();
         self.lock_deadline = .{ .nanoseconds = 0 };
+        self.line_clear_flash_deadline = .{ .nanoseconds = 0 };
         const now_ns: u64 = @intCast(std.Io.Timestamp.now(io, .real).nanoseconds);
         const seed: u32 = @truncate(now_ns ^ (now_ns >> 32));
         rules.seedRandomizer(&self.game, seed);
@@ -50,16 +53,24 @@ pub const Model = struct {
         }
     }
 
-    fn settleAfterDownBlocked(self: *Model) void {
+    fn settleAfterDownBlocked(self: *Model, io: std.Io) void {
         self.lock_deadline = .{ .nanoseconds = 0 };
         rules.lockPiece(&self.game);
         const cleared = rules.clearLines(&self.game);
         rules.updateScoreAndLevel(&self.game, cleared);
+        self.triggerLineClearFeedback(io, cleared);
         rules.spawnPiece(&self.game, null);
         self.game.can_hold = true;
         if (self.game.game_over) {
             self.mode = .game_over;
         }
+    }
+
+    fn triggerLineClearFeedback(self: *Model, io: std.Io, lines_cleared: u32) void {
+        if (lines_cleared == 0) return;
+        std.debug.print("\x07", .{});
+        const now = std.Io.Timestamp.now(io, .real);
+        self.line_clear_flash_deadline = now.addDuration(.fromMilliseconds(line_clear_flash_ms));
     }
 
     fn clearLockPending(self: *Model) void {
@@ -120,12 +131,17 @@ pub const Model = struct {
                 try ctx.requestFocus(self.widget());
             },
             .tick => {
-                if (self.mode == .playing) {
-                    const now = std.Io.Timestamp.now(ctx.io, .real);
+                const now = std.Io.Timestamp.now(ctx.io, .real);
 
+                if (self.line_clear_flash_deadline.nanoseconds != 0 and now.nanoseconds >= self.line_clear_flash_deadline.nanoseconds) {
+                    self.line_clear_flash_deadline = .{ .nanoseconds = 0 };
+                    ctx.redraw = true;
+                }
+
+                if (self.mode == .playing) {
                     if (self.lock_deadline.nanoseconds != 0 and now.nanoseconds >= self.lock_deadline.nanoseconds) {
                         if (self.isGrounded()) {
-                            self.settleAfterDownBlocked();
+                            self.settleAfterDownBlocked(ctx.io);
                             self.resetGravityDeadline(ctx.io);
                             ctx.redraw = true;
                         } else {
@@ -195,8 +211,11 @@ pub const Model = struct {
                             if (self.game.game_over) self.mode = .game_over;
                         } else if (key.matches(vaxis.Key.space, .{})) {
                             self.clearLockPending();
+                            const lines_before = self.game.lines;
                             const dropped = rules.hardDrop(&self.game);
                             self.game.score += dropped * hard_drop_score_per_row;
+                            const lines_cleared = self.game.lines - lines_before;
+                            self.triggerLineClearFeedback(ctx.io, lines_cleared);
                             changed = true;
                             if (self.game.game_over) self.mode = .game_over;
                         }
@@ -226,7 +245,8 @@ pub const Model = struct {
 
     fn typeErasedDrawFn(ptr: *anyopaque, ctx: vxfw.DrawContext) std.mem.Allocator.Error!vxfw.Surface {
         const self: *Model = @ptrCast(@alignCast(ptr));
-        const text_spans = try ui.renderText(self.mode, &self.game, ctx.arena);
+        const show_line_clear_flash = self.line_clear_flash_deadline.nanoseconds != 0;
+        const text_spans = try ui.renderText(self.mode, &self.game, show_line_clear_flash, ctx.arena);
 
         const text: vxfw.RichText = .{
             .text = text_spans,

@@ -187,7 +187,7 @@ fn overlayStyle(mode: AppMode) vaxis.Style {
     };
 }
 
-pub fn renderText(mode: AppMode, game: *const game_state.GameState, allocator: std.mem.Allocator) ![]vaxis.Segment {
+pub fn renderText(mode: AppMode, game: *const game_state.GameState, show_line_clear_flash: bool, allocator: std.mem.Allocator) ![]vaxis.Segment {
     var text: std.ArrayList(vaxis.Segment) = .empty;
     errdefer text.deinit(allocator);
 
@@ -204,6 +204,11 @@ pub fn renderText(mode: AppMode, game: *const game_state.GameState, allocator: s
         .game_over => try appendSegment(allocator, &text, ">>> GAME OVER - Press r to restart <<<\n", overlayStyle(.game_over)),
         .start_screen => try appendSegment(allocator, &text, ">>> Press Enter/Space to start <<<\n", overlayStyle(.start_screen)),
         .playing => {},
+    }
+
+    if (show_line_clear_flash) {
+        const flash_style: vaxis.Style = .{ .fg = .{ .index = 2 }, .bold = true };
+        try appendSegment(allocator, &text, ">>> LINE CLEAR! <<<\n", flash_style);
     }
 
     try appendSegment(allocator, &text, "\n", .{});
