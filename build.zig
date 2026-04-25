@@ -20,6 +20,8 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+    const build_options = b.addOptions();
+    build_options.addOption([]const u8, "app_version", "0.1.0");
     // It's also possible to define more custom flags to toggle optional features
     // of this build script using `b.option()`. All defined flags (including
     // target and optimize options) will be listed when running `zig build --help`
@@ -84,6 +86,7 @@ pub fn build(b: *std.Build) void {
                 // importing modules from different packages).
                 .{ .name = "libvaxis_tetris", .module = mod },
                 .{ .name = "vaxis", .module = vaxis.module("vaxis") },
+                .{ .name = "build_options", .module = build_options.createModule() },
             },
         }),
     });
