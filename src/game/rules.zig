@@ -26,6 +26,15 @@ fn rotateCWValue(rot: types.Rotation) types.Rotation {
     };
 }
 
+const cw_kick_offsets = [_]Offset{
+    .{ .dx = 0, .dy = 0 },
+    .{ .dx = -1, .dy = 0 },
+    .{ .dx = 1, .dy = 0 },
+    .{ .dx = -2, .dy = 0 },
+    .{ .dx = 2, .dy = 0 },
+    .{ .dx = 0, .dy = -1 },
+};
+
 fn pieceOffsets(piece: types.Piece, rot: types.Rotation) [4]Offset {
     return switch (piece) {
         .I => switch (rot) {
@@ -132,9 +141,18 @@ pub fn moveDown(state: *state_mod.GameState) bool {
 pub fn rotateCW(state: *state_mod.GameState) bool {
     if (state.game_over or state.paused) return false;
     const next_rot = rotateCWValue(state.active_rot);
-    if (collides(state, state.active_piece, state.active_pos, next_rot)) return false;
-    state.active_rot = next_rot;
-    return true;
+    for (cw_kick_offsets) |kick| {
+        const next_pos = types.Position{
+            .x = state.active_pos.x + kick.dx,
+            .y = state.active_pos.y + kick.dy,
+        };
+        if (!collides(state, state.active_piece, next_pos, next_rot)) {
+            state.active_pos = next_pos;
+            state.active_rot = next_rot;
+            return true;
+        }
+    }
+    return false;
 }
 
 pub fn holdPiece(state: *state_mod.GameState) bool {

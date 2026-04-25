@@ -35,13 +35,45 @@ test "move legality and rotate legality" {
     state.active_rot = .r0;
     try std.testing.expect(rules.rotateCW(&state));
     try std.testing.expectEqual(types.Rotation.r90, state.active_rot);
+}
 
+test "rotate CW near left wall succeeds with kick" {
+    var state = state_mod.GameState.init();
+    state.active_piece = .I;
+    state.active_pos = .{ .x = -1, .y = 0 };
+    state.active_rot = .r270;
+
+    try std.testing.expect(rules.rotateCW(&state));
+    try std.testing.expectEqual(types.Rotation.r0, state.active_rot);
+    try std.testing.expectEqual(types.Position{ .x = 0, .y = 0 }, state.active_pos);
+}
+
+test "rotate CW near right wall succeeds with kick" {
+    var state = state_mod.GameState.init();
+    state.active_piece = .I;
+    state.active_pos = .{ .x = 7, .y = 0 };
+    state.active_rot = .r90;
+
+    try std.testing.expect(rules.rotateCW(&state));
+    try std.testing.expectEqual(types.Rotation.r180, state.active_rot);
+    try std.testing.expectEqual(types.Position{ .x = 6, .y = 0 }, state.active_pos);
+}
+
+test "rotate CW fails when all kick candidates are blocked" {
+    var state = state_mod.GameState.init();
     state.active_piece = .T;
     state.active_pos = .{ .x = 3, .y = 0 };
     state.active_rot = .r0;
-    state.board[1][5] = filled(.L);
+
+    state.board[1][5] = filled(.L); // (0, 0)
+    state.board[1][4] = filled(.L); // (-1, 0)
+    state.board[1][6] = filled(.L); // (1, 0)
+    state.board[1][3] = filled(.L); // (-2, 0)
+    state.board[1][7] = filled(.L); // (2, 0)
+
     try std.testing.expect(!rules.rotateCW(&state));
     try std.testing.expectEqual(types.Rotation.r0, state.active_rot);
+    try std.testing.expectEqual(types.Position{ .x = 3, .y = 0 }, state.active_pos);
 }
 
 test "lock piece writes piece cells to board" {

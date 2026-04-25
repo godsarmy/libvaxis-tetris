@@ -125,7 +125,7 @@ Use this as a live checklist. Mark items as you complete them.
 - [x] Lock delay
 - [x] Hard drop scoring bonus
 - [x] Better gravity curve by level
-- [ ] Optional basic wall-kick rules
+- [x] Optional basic wall-kick rules
 
 ### 4.2 Quality-of-life
 - [x] Ghost piece
