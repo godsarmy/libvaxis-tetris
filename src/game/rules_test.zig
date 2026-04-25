@@ -7,6 +7,10 @@ fn filled(piece: types.Piece) types.Cell {
     return .{ .filled = piece };
 }
 
+fn pieceIndex(piece: types.Piece) usize {
+    return @intFromEnum(piece);
+}
+
 test "collision: bounds and filled-cell overlap" {
     var state = state_mod.GameState.init();
 
@@ -158,8 +162,41 @@ test "hold with empty slot stores active and spawns next" {
     try std.testing.expectEqual(types.Piece.J, state.active_piece);
     try std.testing.expectEqual(types.Position{ .x = 3, .y = 0 }, state.active_pos);
     try std.testing.expectEqual(types.Rotation.r0, state.active_rot);
-    try std.testing.expectEqual(types.Piece.L, state.next_piece);
     try std.testing.expect(!state.can_hold);
+}
+
+test "7 bag draw yields 7 unique pieces" {
+    var state = state_mod.GameState.init();
+    rules.seedRandomizer(&state, 12345);
+
+    var seen = [_]bool{false} ** 7;
+    var unique_count: u32 = 0;
+
+    for (0..7) |_| {
+        rules.spawnPiece(&state, null);
+        const idx = pieceIndex(state.active_piece);
+        if (!seen[idx]) {
+            seen[idx] = true;
+            unique_count += 1;
+        }
+    }
+
+    try std.testing.expectEqual(@as(u32, 7), unique_count);
+}
+
+test "14 bag draws contain each piece twice" {
+    var state = state_mod.GameState.init();
+    rules.seedRandomizer(&state, 67890);
+
+    var counts = [_]u32{0} ** 7;
+    for (0..14) |_| {
+        rules.spawnPiece(&state, null);
+        counts[pieceIndex(state.active_piece)] += 1;
+    }
+
+    for (counts) |count| {
+        try std.testing.expectEqual(@as(u32, 2), count);
+    }
 }
 
 test "hold swaps with held piece and blocks repeat hold" {

@@ -36,9 +36,12 @@ pub const Model = struct {
         };
     }
 
-    fn startNewGame(self: *Model) void {
+    fn startNewGame(self: *Model, io: std.Io) void {
         self.game = game_state.GameState.init();
         self.lock_deadline = .{ .nanoseconds = 0 };
+        const now_ns: u64 = @intCast(std.Io.Timestamp.now(io, .real).nanoseconds);
+        const seed: u32 = @truncate(now_ns ^ (now_ns >> 32));
+        rules.seedRandomizer(&self.game, seed);
         rules.spawnPiece(&self.game, null);
         if (self.game.game_over) {
             self.mode = .game_over;
@@ -157,7 +160,7 @@ pub const Model = struct {
                 switch (self.mode) {
                     .start_screen => {
                         if (key.matches(vaxis.Key.enter, .{}) or key.matches(vaxis.Key.space, .{})) {
-                            self.startNewGame();
+                            self.startNewGame(ctx.io);
                             self.resetGravityDeadline(ctx.io);
                             changed = true;
                         }
@@ -206,7 +209,7 @@ pub const Model = struct {
                     },
                     .game_over => {
                         if (key.matches('r', .{})) {
-                            self.startNewGame();
+                            self.startNewGame(ctx.io);
                             self.resetGravityDeadline(ctx.io);
                             changed = true;
                         }

@@ -5,16 +5,42 @@ pub const line_score_map = [5]u32{ 0, 100, 300, 500, 800 };
 
 const Offset = struct { dx: i32, dy: i32 };
 
-fn nextPieceInSequence(piece: types.Piece) types.Piece {
-    return switch (piece) {
-        .I => .O,
-        .O => .T,
-        .T => .S,
-        .S => .Z,
-        .Z => .J,
-        .J => .L,
-        .L => .I,
-    };
+fn nextRandom(state: *state_mod.GameState) u32 {
+    var x = state.random_state;
+    x ^= x << 13;
+    x ^= x >> 17;
+    x ^= x << 5;
+    if (x == 0) x = state_mod.GameState.default_seed;
+    state.random_state = x;
+    return x;
+}
+
+fn refillBag(state: *state_mod.GameState) void {
+    state.bag = state_mod.GameState.pieces;
+
+    var i: usize = state.bag.len - 1;
+    while (i > 0) : (i -= 1) {
+        const j = @as(usize, @intCast(nextRandom(state) % @as(u32, @intCast(i + 1))));
+        const tmp = state.bag[i];
+        state.bag[i] = state.bag[j];
+        state.bag[j] = tmp;
+    }
+
+    state.bag_remaining = @intCast(state.bag.len);
+}
+
+fn drawBagPiece(state: *state_mod.GameState) types.Piece {
+    if (state.bag_remaining == 0) {
+        refillBag(state);
+    }
+
+    state.bag_remaining -= 1;
+    return state.bag[state.bag_remaining];
+}
+
+pub fn seedRandomizer(state: *state_mod.GameState, seed: u32) void {
+    state.setSeed(seed);
+    state.next_piece = drawBagPiece(state);
 }
 
 fn rotateCWValue(rot: types.Rotation) types.Rotation {
@@ -107,7 +133,9 @@ pub fn spawnPiece(state: *state_mod.GameState, forced_piece: ?types.Piece) void 
     state.active_piece = piece;
     state.active_pos = state_mod.GameState.spawn_position;
     state.active_rot = .r0;
-    state.next_piece = nextPieceInSequence(piece);
+    if (forced_piece == null) {
+        state.next_piece = drawBagPiece(state);
+    }
 
     if (collides(state, state.active_piece, state.active_pos, state.active_rot)) {
         state.game_over = true;

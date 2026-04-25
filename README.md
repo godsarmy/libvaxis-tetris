@@ -57,6 +57,7 @@ zig fmt build.zig src/*.zig src/game/*.zig
 - Level-based gravity speed curve
 - Time-based lock delay (auto-lock while grounded)
 - Hard drop with bonus scoring
+- 7-bag piece randomizer
 - Hold piece (single hold per drop)
 - Ghost piece rendering
 - Next piece preview
@@ -64,8 +65,6 @@ zig fmt build.zig src/*.zig src/game/*.zig
 
 ## Known limitations
 
-- No wall-kick system yet (basic rotation only)
-- No bag randomizer yet (currently deterministic sequence)
 - Manual interactive testing requires a real terminal/TTY; headless environments may fail with `NoDevice` when opening `/dev/tty`
 
 ## License
