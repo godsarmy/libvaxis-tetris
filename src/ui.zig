@@ -40,9 +40,10 @@ fn isActiveCell(active_cells: [4]types.Position, x: i32, y: i32) bool {
     return false;
 }
 
-fn ghostLandingPosition(mode: AppMode, game: *const game_state.GameState) ?types.Position {
+fn ghostLandingPosition(mode: AppMode, game: *const game_state.GameState, ghost_enabled: bool) ?types.Position {
     // Ghost piece is purely a render aid; only compute it while an active piece
     // is meaningful for gameplay.
+    if (!ghost_enabled) return null;
     if (mode != .playing and mode != .paused) return null;
     if (game.game_over) return null;
 
@@ -90,11 +91,12 @@ fn appendFmtSegment(
 fn appendBoardText(
     mode: AppMode,
     game: *const game_state.GameState,
+    ghost_enabled: bool,
     allocator: std.mem.Allocator,
     list: *std.ArrayList(vaxis.Segment),
 ) !void {
     const active_cells = rules.pieceCells(game.active_piece, game.active_pos, game.active_rot);
-    const ghost_cells_opt = if (ghostLandingPosition(mode, game)) |ghost_pos|
+    const ghost_cells_opt = if (ghostLandingPosition(mode, game, ghost_enabled)) |ghost_pos|
         rules.pieceCells(game.active_piece, ghost_pos, game.active_rot)
     else
         null;
@@ -171,6 +173,7 @@ fn appendSidePanelText(game: *const game_state.GameState, allocator: std.mem.All
     try appendSegment(allocator, list, "  Left/Right: Move\n", value_style);
     try appendSegment(allocator, list, "  Down: Soft drop\n", value_style);
     try appendSegment(allocator, list, "  Up/x: Rotate\n", value_style);
+    try appendSegment(allocator, list, "  g: Ghost on/off\n", value_style);
     try appendSegment(allocator, list, "  c: Hold\n", value_style);
     try appendSegment(allocator, list, "  Space: Hard drop\n", value_style);
     try appendSegment(allocator, list, "  p: Pause/resume\n", value_style);
@@ -187,7 +190,7 @@ fn overlayStyle(mode: AppMode) vaxis.Style {
     };
 }
 
-pub fn renderText(mode: AppMode, game: *const game_state.GameState, show_line_clear_flash: bool, allocator: std.mem.Allocator) ![]vaxis.Segment {
+pub fn renderText(mode: AppMode, game: *const game_state.GameState, ghost_enabled: bool, show_line_clear_flash: bool, allocator: std.mem.Allocator) ![]vaxis.Segment {
     var text: std.ArrayList(vaxis.Segment) = .empty;
     errdefer text.deinit(allocator);
 
@@ -212,7 +215,7 @@ pub fn renderText(mode: AppMode, game: *const game_state.GameState, show_line_cl
     }
 
     try appendSegment(allocator, &text, "\n", .{});
-    try appendBoardText(mode, game, allocator, &text);
+    try appendBoardText(mode, game, ghost_enabled, allocator, &text);
     try appendSegment(allocator, &text, "\n\n", .{});
     try appendSidePanelText(game, allocator, &text);
 

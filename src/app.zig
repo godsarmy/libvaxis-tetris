@@ -26,6 +26,7 @@ const lock_delay_ms: u32 = 500;
 pub const Model = struct {
     mode: ui.AppMode = .start_screen,
     game: game_state.GameState = game_state.GameState.init(),
+    ghost_enabled: bool = true,
     lock_deadline: std.Io.Timestamp = .{ .nanoseconds = 0 },
     next_gravity_deadline: std.Io.Timestamp = .{ .nanoseconds = 0 },
     line_clear_flash_deadline: std.Io.Timestamp = .{ .nanoseconds = 0 },
@@ -40,6 +41,7 @@ pub const Model = struct {
 
     fn startNewGame(self: *Model, io: std.Io) void {
         self.game = game_state.GameState.init();
+        self.ghost_enabled = true;
         self.lock_deadline = .{ .nanoseconds = 0 };
         self.line_clear_flash_deadline = .{ .nanoseconds = 0 };
         const now_ns: u64 = @intCast(std.Io.Timestamp.now(io, .real).nanoseconds);
@@ -185,6 +187,9 @@ pub const Model = struct {
                         if (key.matches('p', .{})) {
                             self.togglePause();
                             changed = true;
+                        } else if (key.matches('g', .{})) {
+                            self.ghost_enabled = !self.ghost_enabled;
+                            changed = true;
                         } else if (key.matches(vaxis.Key.left, .{})) {
                             if (rules.moveLeft(&self.game)) {
                                 self.clearLockPending();
@@ -224,6 +229,9 @@ pub const Model = struct {
                         if (key.matches('p', .{})) {
                             self.togglePause();
                             changed = true;
+                        } else if (key.matches('g', .{})) {
+                            self.ghost_enabled = !self.ghost_enabled;
+                            changed = true;
                         }
                     },
                     .game_over => {
@@ -246,7 +254,7 @@ pub const Model = struct {
     fn typeErasedDrawFn(ptr: *anyopaque, ctx: vxfw.DrawContext) std.mem.Allocator.Error!vxfw.Surface {
         const self: *Model = @ptrCast(@alignCast(ptr));
         const show_line_clear_flash = self.line_clear_flash_deadline.nanoseconds != 0;
-        const text_spans = try ui.renderText(self.mode, &self.game, show_line_clear_flash, ctx.arena);
+        const text_spans = try ui.renderText(self.mode, &self.game, self.ghost_enabled, show_line_clear_flash, ctx.arena);
 
         const text: vxfw.RichText = .{
             .text = text_spans,

@@ -42,6 +42,7 @@ zig fmt build.zig src/*.zig src/game/*.zig
 - `←` / `→`: move piece
 - `↓`: soft drop
 - `↑` or `x`: rotate clockwise
+- `g`: toggle ghost piece on/off
 - `Space` (in game): hard drop
 - `c`: hold piece
 - `p`: pause / resume
@@ -58,8 +59,9 @@ zig fmt build.zig src/*.zig src/game/*.zig
 - Hard drop with bonus scoring
 - 7-bag piece randomizer
 - Hold piece (single hold per drop)
-- Ghost piece rendering
+- Ghost piece rendering (toggle with `g`)
 - Next piece preview
+- Line-clear feedback (terminal bell + flash message)
 - Colored terminal rendering using `vxfw.RichText`
 
 ## Known limitations
