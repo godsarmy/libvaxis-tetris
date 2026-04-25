@@ -1,0 +1,7 @@
+.zig-cache/
+zig-out/
+zig-pkg/
+
+# Editor/OS noise
+.DS_Store
+Thumbs.db
