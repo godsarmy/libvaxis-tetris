@@ -6,10 +6,12 @@ const game_state = @import("game/state.zig");
 const rules = @import("game/rules.zig");
 const types = @import("game/types.zig");
 
-const base_gravity_ms: u32 = 500;
-const min_gravity_ms: u32 = 100;
-const gravity_step_ms: u32 = 40;
+const base_gravity_ms: u32 = 1600;
+const min_gravity_ms: u32 = 220;
+const gravity_step_ms: u32 = 25;
 const hard_drop_score_per_row: u32 = 2;
+const tick_poll_ms: u32 = 50;
+const lock_delay_ms: u32 = 500;
 
 const AppMode = enum {
     start_screen,
@@ -21,7 +23,8 @@ const AppMode = enum {
 const Model = struct {
     mode: AppMode = .start_screen,
     game: game_state.GameState = game_state.GameState.init(),
-    lock_pending: bool = false,
+    lock_deadline: std.Io.Timestamp = .{ .nanoseconds = 0 },
+    next_gravity_deadline: std.Io.Timestamp = .{ .nanoseconds = 0 },
 
     pub fn widget(self: *Model) vxfw.Widget {
         return .{
@@ -33,7 +36,7 @@ const Model = struct {
 
     fn startNewGame(self: *Model) void {
         self.game = game_state.GameState.init();
-        self.lock_pending = false;
+        self.lock_deadline = .{ .nanoseconds = 0 };
         rules.spawnPiece(&self.game, null);
         if (self.game.game_over) {
             self.mode = .game_over;
@@ -43,7 +46,7 @@ const Model = struct {
     }
 
     fn settleAfterDownBlocked(self: *Model) void {
-        self.lock_pending = false;
+        self.lock_deadline = .{ .nanoseconds = 0 };
         rules.lockPiece(&self.game);
         const cleared = rules.clearLines(&self.game);
         rules.updateScoreAndLevel(&self.game, cleared);
@@ -55,7 +58,12 @@ const Model = struct {
     }
 
     fn clearLockPending(self: *Model) void {
-        self.lock_pending = false;
+        self.lock_deadline = .{ .nanoseconds = 0 };
+    }
+
+    fn isGrounded(self: *const Model) bool {
+        const below = types.Position{ .x = self.game.active_pos.x, .y = self.game.active_pos.y + 1 };
+        return rules.collides(&self.game, self.game.active_piece, below, self.game.active_rot);
     }
 
     fn gravityMsForLevel(level: u32) u32 {
@@ -67,6 +75,12 @@ const Model = struct {
         return base_gravity_ms - reduction;
     }
 
+    fn resetGravityDeadline(self: *Model, io: std.Io) void {
+        const interval_ms = gravityMsForLevel(self.game.level);
+        const now = std.Io.Timestamp.now(io, .real);
+        self.next_gravity_deadline = now.addDuration(.fromMilliseconds(interval_ms));
+    }
+
     fn togglePause(self: *Model) void {
         switch (self.mode) {
             .playing => {
@@ -76,6 +90,7 @@ const Model = struct {
             .paused => {
                 self.mode = .playing;
                 self.game.paused = false;
+                self.next_gravity_deadline = .{ .nanoseconds = 0 };
             },
             else => {},
         }
@@ -279,27 +294,43 @@ const Model = struct {
     }
 
     fn scheduleGravity(self: *Model, ctx: *vxfw.EventContext) !void {
-        const interval_ms = if (self.mode == .playing)
-            gravityMsForLevel(self.game.level)
-        else
-            base_gravity_ms;
-        try ctx.tick(interval_ms, self.widget());
+        try ctx.tick(tick_poll_ms, self.widget());
     }
 
     fn typeErasedEventHandler(ptr: *anyopaque, ctx: *vxfw.EventContext, event: vxfw.Event) anyerror!void {
         const self: *Model = @ptrCast(@alignCast(ptr));
         switch (event) {
             .init => {
+                try ctx.requestFocus(self.widget());
                 try self.scheduleGravity(ctx);
+            },
+            .focus_in => {
+                try ctx.requestFocus(self.widget());
             },
             .tick => {
                 if (self.mode == .playing) {
-                    if (rules.moveDown(&self.game)) {
-                        self.clearLockPending();
-                    } else if (self.lock_pending) {
-                        self.settleAfterDownBlocked();
-                    } else {
-                        self.lock_pending = true;
+                    const now = std.Io.Timestamp.now(ctx.io, .real);
+
+                    if (self.lock_deadline.nanoseconds != 0 and now.nanoseconds >= self.lock_deadline.nanoseconds) {
+                        if (self.isGrounded()) {
+                            self.settleAfterDownBlocked();
+                            self.resetGravityDeadline(ctx.io);
+                            ctx.redraw = true;
+                        } else {
+                            self.clearLockPending();
+                        }
+                    }
+
+                    if (self.next_gravity_deadline.nanoseconds == 0 or now.nanoseconds >= self.next_gravity_deadline.nanoseconds) {
+                        if (rules.moveDown(&self.game)) {
+                            self.clearLockPending();
+                        } else {
+                            if (self.lock_deadline.nanoseconds == 0) {
+                                self.lock_deadline = now.addDuration(.fromMilliseconds(lock_delay_ms));
+                            }
+                        }
+                        self.resetGravityDeadline(ctx.io);
+                        ctx.redraw = true;
                     }
                 }
                 try self.scheduleGravity(ctx);
@@ -310,44 +341,69 @@ const Model = struct {
                     return;
                 }
 
+                var changed: bool = false;
+
                 switch (self.mode) {
                     .start_screen => {
-                        if (key.matches(vaxis.Key.enter, .{}) or key.matches(' ', .{})) {
+                        if (key.matches(vaxis.Key.enter, .{}) or key.matches(vaxis.Key.space, .{})) {
                             self.startNewGame();
+                            self.resetGravityDeadline(ctx.io);
+                            changed = true;
                         }
                     },
                     .playing => {
                         if (key.matches('p', .{})) {
                             self.togglePause();
+                            changed = true;
                         } else if (key.matches(vaxis.Key.left, .{})) {
-                            if (rules.moveLeft(&self.game)) self.clearLockPending();
+                            if (rules.moveLeft(&self.game)) {
+                                self.clearLockPending();
+                                changed = true;
+                            }
                         } else if (key.matches(vaxis.Key.right, .{})) {
-                            if (rules.moveRight(&self.game)) self.clearLockPending();
+                            if (rules.moveRight(&self.game)) {
+                                self.clearLockPending();
+                                changed = true;
+                            }
                         } else if (key.matches(vaxis.Key.down, .{})) {
-                            if (rules.moveDown(&self.game)) self.clearLockPending();
+                            if (rules.moveDown(&self.game)) {
+                                self.clearLockPending();
+                                changed = true;
+                            }
                         } else if (key.matches(vaxis.Key.up, .{}) or key.matches('x', .{})) {
-                            if (rules.rotateCW(&self.game)) self.clearLockPending();
+                            if (rules.rotateCW(&self.game)) {
+                                self.clearLockPending();
+                                changed = true;
+                            }
                         } else if (key.matches('c', .{})) {
                             self.clearLockPending();
-                            _ = rules.holdPiece(&self.game);
+                            if (rules.holdPiece(&self.game)) changed = true;
                             if (self.game.game_over) self.mode = .game_over;
-                        } else if (key.matches(' ', .{})) {
+                        } else if (key.matches(vaxis.Key.space, .{})) {
                             self.clearLockPending();
                             const dropped = rules.hardDrop(&self.game);
                             self.game.score += dropped * hard_drop_score_per_row;
+                            changed = true;
                             if (self.game.game_over) self.mode = .game_over;
                         }
                     },
                     .paused => {
                         if (key.matches('p', .{})) {
                             self.togglePause();
+                            changed = true;
                         }
                     },
                     .game_over => {
                         if (key.matches('r', .{})) {
                             self.startNewGame();
+                            self.resetGravityDeadline(ctx.io);
+                            changed = true;
                         }
                     },
+                }
+
+                if (changed) {
+                    ctx.redraw = true;
                 }
             },
             else => {},
