@@ -11,6 +11,7 @@ See also:
 
 - Zig `0.16.0`
 - A real TTY-compatible terminal (for libvaxis `/dev/tty` access)
+- Verify AI agent capacity to write Zig code with libvaxis.
 
 ## Build
 
