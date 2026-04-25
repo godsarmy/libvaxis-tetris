@@ -4,8 +4,8 @@ Terminal Tetris written in Zig using [libvaxis](https://github.com/rockorager/li
 
 See also:
 
-- `ARCHITECTURE.md` for module/runtime design
-- `AGENTS.md` for contributor/agent workflow notes
+- [ARCHITECTURE.md](./ARCHITECTURE.md) for module/runtime design
+- [AGENTS.md](./AGENTS.md) for contributor/agent workflow notes
 
 ## Requirements
 
@@ -67,3 +67,7 @@ zig fmt build.zig src/*.zig src/game/*.zig
 - No wall-kick system yet (basic rotation only)
 - No bag randomizer yet (currently deterministic sequence)
 - Manual interactive testing requires a real terminal/TTY; headless environments may fail with `NoDevice` when opening `/dev/tty`
+
+## License
+
+MIT — see [LICENSE](./LICENSE).
