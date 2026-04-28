@@ -88,6 +88,29 @@ fn appendFmtSegment(
     try appendSegment(allocator, list, segment_text, style);
 }
 
+fn appendPiecePreview(
+    piece: types.Piece,
+    allocator: std.mem.Allocator,
+    list: *std.ArrayList(vaxis.Segment),
+) !void {
+    const filled_style: vaxis.Style = .{ .fg = pieceColor(piece), .bold = true };
+    const empty_style: vaxis.Style = .{ .fg = .{ .index = 8 }, .dim = true };
+    const preview_cells = rules.pieceCells(piece, .{ .x = 0, .y = 0 }, .r0);
+
+    for (0..4) |y_usize| {
+        const y: i32 = @intCast(y_usize);
+        for (0..4) |x_usize| {
+            const x: i32 = @intCast(x_usize);
+            if (isActiveCell(preview_cells, x, y)) {
+                try appendSegment(allocator, list, "[]", filled_style);
+            } else {
+                try appendSegment(allocator, list, "..", empty_style);
+            }
+        }
+        try appendSegment(allocator, list, "\n", .{});
+    }
+}
+
 fn appendBoardText(
     mode: AppMode,
     game: *const game_state.GameState,
@@ -156,7 +179,8 @@ fn appendSidePanelText(game: *const game_state.GameState, allocator: std.mem.All
         .{ game.score, game.lines, game.level },
     );
 
-    try appendSegment(allocator, list, "Next: ", label_style);
+    try appendSegment(allocator, list, "Next (1):\n", label_style);
+    try appendPiecePreview(game.next_piece, allocator, list);
     const next_style: vaxis.Style = .{ .fg = pieceColor(game.next_piece), .bold = true };
     try appendFmtSegment(allocator, list, next_style, "{s}\n\n", .{pieceLabel(game.next_piece)});
 
